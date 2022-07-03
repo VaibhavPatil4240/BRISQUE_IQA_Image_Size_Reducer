@@ -2,5 +2,5 @@
 
 All the required dependencies are mentioned in the requirements.txt.<br>
 Code uses python image-quality library. As of now its latest build is not available with pip (current one has a bug).<br>
-Original code can be found at: https://github.com/ocampor/image-quality
+image-quality code can be found at: https://github.com/ocampor/image-quality
 
