@@ -1,2 +1,4 @@
 finalenv/
 __pycache__/
+*.jpg
+FastAPI/divide_image.py

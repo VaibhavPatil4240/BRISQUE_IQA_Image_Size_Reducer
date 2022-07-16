@@ -1,12 +1,14 @@
+from cv2 import imwrite
 import imquality.brisque as brisque
 import cv2
 import numpy as np
+import time
 
 color = (255, 0, 0)
 thickness = 4
 
 def get_blurrness_score(image):
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    image = cv2.cvtColor((image), cv2.COLOR_BGR2GRAY)
     fm = cv2.Laplacian(image, cv2.CV_64F).var()
     return fm
 
@@ -17,43 +19,37 @@ def isPrime(num):
                 return False
     return True
 
-def getImageBlock(shape):
-    rows=shape[0]
-    columns=shape[1]
-    r_divide=4
-    c_divide=4
-    r_inc=0
-    c_inc=0
-    while(isPrime(rows)):
-        rows+=1
-        r_inc+=1
-    while(isPrime(columns)):
-        columns+=1
-        c_inc+=1
-    while(not rows%r_divide==0):
-        r_divide+=1
-    while(not columns%c_divide==0):
-        c_divide+=1
-    return r_divide,c_divide,r_inc,c_inc
+def divideImage(img):
+    divisions=[]
+    row=img.shape[0]
+    col=img.shape[1]
+    color = (255, 0, 0)
+    thickness = 6
+    r_inc=int(row/4)
+    curr_r=0
+    while(curr_r<=(row-r_inc)):
+        curr_c=0
+        c_inc=int(col/4)
+        while(curr_c<=(col-c_inc)):
+            # cv2.rectangle(img,(curr_c,curr_r),(curr_c+c_inc,curr_r+r_inc),color=color,thickness=thickness)
+            divisions.append([curr_r,(curr_r+r_inc),curr_c,(curr_c+c_inc)])
+            if(curr_c+c_inc>col):
+                c_inc=col-curr_c
+            curr_c+=c_inc
+        if(curr_r+r_inc>row):
+            r_inc=row-curr_r
+        curr_r+=r_inc
+    return divisions
 
-def get_increment(shape):
-    r_increament=int(shape[0]/4)
-    c_increament=int(shape[1]/4)
-    return r_increament,c_increament
-
-def getBlurnessMatrix(r_increament,c_increament,shape,img):
-    print("IMage shape",img.shape)
+def getBlurnessMatrix(img,divisions):
     blurrness_mat=[]
-    for i in range(0,shape[0]-r_increament-1,r_increament):
-        for j in range(0,shape[0]-c_increament-1,c_increament):
-            if(i+r_increament<shape[0] and j+c_increament<shape[1]):
-                blurrness=get_blurrness_score(img[i:i+r_increament,j:j+c_increament])
-                blurrness_mat.append([blurrness,i,j])
-
+    for division in divisions:
+        segment=img[division[0]:division[1],division[2]:division[3]]
+        blurrness=get_blurrness_score(segment)
+        blurrness_mat.append([blurrness,division[0],division[1],division[2],division[3]])
     blurrness_mat=np.array(blurrness_mat)
     blurrness_mat=blurrness_mat[blurrness_mat[:,0].argsort()]
     shape=blurrness_mat.shape
-    print("Shape: ",shape)
     s=shape[0]
     i=0
     while(i<s):
@@ -63,26 +59,29 @@ def getBlurnessMatrix(r_increament,c_increament,shape,img):
             i-=1
         i+=1
     shape=blurrness_mat.shape
-    print("Shape: ",shape)
     return blurrness_mat
 
-def getQuality(r_increament,c_increament,blurrness_mat,image,img):
+def getQuality(blurrness_mat,img):
     quality_score=[]
+    start=time.time()
     for i in blurrness_mat:
-        r=int(i[1])
-        c=int(i[2])
-        img_segment=img[r:r+r_increament,c:c+c_increament]
-        quality_score.append( brisque.score(img_segment))
+        img_segment=img[int(i[1]):int(i[2]),int(i[3]):int(i[4])]
+        quality_score.append( brisque.score(img_segment,kernel_size=5))
+    end=time.time()
+    print("Time: ",end-start)
     quality_score=np.array(quality_score)
     return np.mean(quality_score)
 
 def reduce_size(image):
+    print(image)
     img = cv2.imread("uploads/"+image)
     filename=image.split(".")
+    print(filename)
     shape=img.shape
-    r_increament,c_increament=get_increment(shape)
-    blurrness_mat=getBlurnessMatrix(r_increament,c_increament,shape,img)
-    mean_quality=getQuality(r_increament,c_increament,blurrness_mat,image,img)
+    divisions=divideImage(img.copy())
+    blurrness_mat=getBlurnessMatrix(img,divisions)
+    mean_quality=getQuality(blurrness_mat,img)
+    print("Quality: ",mean_quality)
     mean_blurr=np.mean(blurrness_mat[:,0])
     org_blurr=get_blurrness_score(img)
     reduce =(org_blurr%100)-mean_quality
